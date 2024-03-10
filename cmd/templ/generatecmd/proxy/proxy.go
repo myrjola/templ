@@ -3,6 +3,8 @@ package proxy
 import (
 	"bytes"
 	"compress/gzip"
+	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"log"
@@ -23,7 +25,17 @@ import (
 //go:embed script.js
 var script string
 
-const scriptTag = `<script src="/_templ/reload/script.js"></script>`
+// scriptCheckSum returns the subresource integrity (SRI) hash for the script.
+//
+// This allows the script to be loaded for sites with a strict Content Security Policy
+// (CSP) that allows the same hash as the SRI attribute.
+func scriptCheckSum(script string) string {
+	binaryHash := sha256.Sum256([]byte(script))
+	b64Hash := base64.StdEncoding.EncodeToString(binaryHash[:])
+	return fmt.Sprintf("sha256-%s", b64Hash)
+}
+
+var scriptTag = fmt.Sprintf(`<script integrity="%s" src="/_templ/reload/script.js"></script>`, scriptCheckSum(script))
 
 type Handler struct {
 	URL    string
